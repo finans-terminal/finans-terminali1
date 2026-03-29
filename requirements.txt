@@ -1,6 +1,5 @@
 streamlit
 yfinance
 pandas
-plotly          # Profesyonel, etkileşimli grafikler için
-pandas_ta       # Teknik analiz (RSI, MACD, MA) hesaplamaları için
-datetime        # Zaman ve tarih işlemleri (KPSS geri sayımı vb.) için
+plotly
+pandas_ta
