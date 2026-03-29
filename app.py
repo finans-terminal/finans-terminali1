@@ -2,63 +2,65 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
-st.set_page_config(page_title="Doğuş Can - Finans Terminali", layout="wide")
+st.set_page_config(page_title="Doğuş Can Terminal V4", layout="wide")
 
-st.title("📈 Profesyonel Finans Terminali")
-st.info("Veriler Yahoo Finance üzerinden canlı çekilmektedir.")
+st.title("📈 Finans Terminali - Canlı Takip")
 
-# --- Gelişmiş Veri Çekme Fonksiyonu ---
-def veriyi_getir(sembol):
+# --- GELİŞMİŞ VERİ ÇEKME FONKSİYONU ---
+def get_live_price(symbol):
     try:
-        # Hata payını azaltmak için 7 günlük veri çekiyoruz
-        ticker = yf.Ticker(sembol)
-        df = ticker.history(period="7d")
+        # 1. Adım: Veriyi 7 günlük geniş bir aralıkta çek (Hafta sonu boşluğunu aşmak için)
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period="7d", interval="1d")
         
         if not df.empty:
-            # En son geçerli fiyatı al ve sayıya (float) çevir
-            son_fiyat = float(df['Close'].iloc[-1])
-            return son_fiyat
+            # 2. Adım: Son kapanış fiyatını al (Series hatasını önlemek için .values[0] kullanıyoruz)
+            last_price = df['Close'].iloc[-1]
+            return float(last_price)
         else:
             return None
     except Exception as e:
+        # Hatayı terminalde değil, sessizce yönetiyoruz
         return None
 
-# --- Ekran Düzeni ---
-col1, col2, col3 = st.columns(3)
+# --- EKRAN TASARIMI ---
+st.subheader("Piyasa Göstergeleri")
+c1, c2, c3 = st.columns(3)
 
-# Semboller (Önemli: Yazımlar tam bu şekilde olmalı)
-veriler = {
+# Sembol Listesi
+assets = {
     "Dolar / TL": "USDTRY=X",
-    "BIST 100": "XU100.IS",
-    "Ons Altın": "GC=F"
+    "Ons Altın": "GC=F",
+    "BIST 100": "XU100.IS"
 }
 
-# Verileri Dağıtma
-sutunlar = [col1, col2, col3]
+cols = [c1, c2, c3]
 
-for (isim, kod), sutun in zip(veriler.items(), sutunlar):
-    fiyat = veriyi_getir(kod)
-    if fiyat:
-        sutun.metric(label=isim, value=f"{fiyat:,.2f}")
+for (name, sym), col in zip(assets.items(), cols):
+    price = get_live_price(sym)
+    if price:
+        col.metric(label=name, value=f"{price:,.2f}")
     else:
-        sutun.error(f"{isim} verisi şu an alınamıyor.")
+        col.warning(f"{name} verisi alınamadı.")
 
 st.divider()
 
-# --- Grafik Bölümü ---
-st.subheader("📊 Hisse Senedi Analizi")
-secilen_hisse = st.selectbox("Hisse Seçin:", ["THYAO.IS", "ASELS.IS", "SASA.IS", "EREGL.IS"])
+# --- HİSSE GRAFİK BÖLÜMÜ ---
+st.subheader("Hisse Senedi Analizi")
+hisse = st.selectbox("Bir hisse seçin:", ["THYAO.IS", "ASELS.IS", "EREGL.IS", "SASA.IS"])
 
 try:
-    # Grafik verisi için son 1 ayı çek
-    grafik_df = yf.download(secilen_hisse, period="1mo", interval="1d")
-    if not grafik_df.empty:
-        st.line_chart(grafik_df['Close'])
-        st.caption(f"{secilen_hisse} Son 1 Aylık Gelişim Grafiği")
+    # Grafik için download fonksiyonunu kullanıyoruz
+    data = yf.download(hisse, period="1mo", interval="1d", progress=False)
+    if not data.empty:
+        # Veri setini sadeleştiriyoruz (Hata payını azaltmak için)
+        chart_data = data['Close']
+        st.line_chart(chart_data)
+        st.caption(f"{hisse} - Son 30 Günlük Kapanış Seyri")
     else:
-        st.warning("Grafik verisi yüklenemedi.")
-except:
-    st.error("Grafik çizilirken bir sorun oluştu.")
+        st.error("Grafik verisi şu an çekilemiyor. (Yahoo Finance kaynaklı olabilir)")
+except Exception as e:
+    st.error(f"Grafik hatası: {e}")
 
-st.sidebar.markdown("### Terminal Durumu: 🟢 Aktif")
-st.sidebar.write("Piyasalar kapalıyken son kapanış fiyatları gösterilir.")
+st.sidebar.markdown("### 🟢 Sistem Aktif")
+st.sidebar.info("Hafta sonu verileri son Cuma kapanışını baz alır.")
