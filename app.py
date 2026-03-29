@@ -2,83 +2,77 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 
-# Sayfa Ayarları
-st.set_page_config(page_title="Doğuş Can - Finans Terminali", layout="wide")
+st.set_page_config(page_title="Doğuş Can Terminal", layout="wide")
 
 st.title("📈 Profesyonel Finans Terminali")
 st.write(f"**Geliştirici:** Doğuş Can Şen | Ekonomi & Finans")
 
-# --- ÜST PANEL: PİYASA ÖZETLERİ ---
-st.subheader("Piyasa Özetleri (Son Kapanışlar)")
+# --- TEŞHİS VE VERİ ÇEKME FONKSİYONU ---
+def garantili_veri(sembol):
+    try:
+        # Ticker nesnesi oluştur
+        t = yf.Ticker(sembol)
+        # Son 1 haftalık veriyi çek
+        df = t.history(period="7d", interval="1d")
+        
+        if not df.empty:
+            # En son fiyatı ve tarihini al
+            son_fiyat = float(df['Close'].iloc[-1])
+            return son_fiyat
+        return None
+    except Exception as e:
+        # Hata varsa ekranda küçük bir uyarı göster (Sadece geliştirici görsün)
+        st.sidebar.error(f"{sembol} Hatası: {e}")
+        return None
+
+# --- ÜST PANEL ---
+st.subheader("Piyasa Verileri")
 c1, c2, c3 = st.columns(3)
 
-# 1. DOLAR VERİSİ
-try:
-    dolar_data = yf.download("USDTRY=X", period="5d", interval="1d", progress=False)
-    if not dolar_data.empty:
-        dolar_fiyat = float(dolar_data['Close'].iloc[-1])
-        c1.metric(label="Dolar / TL", value=f"{dolar_fiyat:.2f} ₺")
-    else:
-        c1.error("Dolar verisi alınamadı.")
-except:
-    c1.error("Dolar bağlantı hatası.")
+# Sembolleri en kararlı halleriyle tanımlayalım
+dolar = garantili_veri("USDTRY=X")
+altin = garantili_veri("GC=F")
+bist = garantili_veri("XU100.IS")
 
-# 2. ALTIN VERİSİ
-try:
-    altin_data = yf.download("GC=F", period="5d", interval="1d", progress=False)
-    if not altin_data.empty:
-        altin_fiyat = float(altin_data['Close'].iloc[-1])
-        c2.metric(label="Ons Altın", value=f"${altin_fiyat:,.1f}")
-    else:
-        c2.error("Altın verisi alınamadı.")
-except:
-    c2.error("Altın bağlantı hatası.")
+with c1:
+    if dolar: st.metric("Dolar / TL", f"{dolar:.2f} ₺")
+    else: st.warning("Dolar çekilemedi")
 
-# 3. BIST 100 VERİSİ
-try:
-    bist_data = yf.download("XU100.IS", period="5d", interval="1d", progress=False)
-    if not bist_data.empty:
-        bist_fiyat = float(bist_data['Close'].iloc[-1])
-        c3.metric(label="BIST 100", value=f"{bist_fiyat:,.0f}")
-    else:
-        c3.error("BIST 100 verisi alınamadı.")
-except:
-    c3.error("BIST 100 bağlantı hatası.")
+with c2:
+    if altin: st.metric("Ons Altın", f"${altin:,.1f}")
+    else: st.warning("Altın çekilemedi")
+
+with c3:
+    if bist: st.metric("BIST 100", f"{bist:,.0f}")
+    else: st.warning("BIST çekilemedi")
 
 st.divider()
 
-# --- ALT PANEL: ÇALIŞAN MUM GRAFİĞİ (THY VE DİĞERLERİ) ---
-st.subheader("🕯️ Hisse Mum Grafiği (Teknik Analiz)")
-hisse_secim = st.selectbox("Hisse Seçin:", ["THYAO.IS", "ASELS.IS", "EREGL.IS", "SASA.IS", "KCHOL.IS"])
+# --- ÇALIŞAN GRAFİK MANTIĞI ---
+st.subheader("📊 Hisse Senedi Analizi")
+hisse = st.selectbox("Hisse Seçin:", ["THYAO.IS", "ASELS.IS", "EREGL.IS", "SASA.IS"])
 
 try:
-    # Mum grafiği için veriyi çekiyoruz
-    df = yf.download(hisse_secim, period="1mo", interval="1d", progress=False)
-    
-    if not df.empty:
-        # Mum Grafiği (Candlestick) Oluşturma
-        fig = go.Figure(data=[go.Candlestick(x=df.index,
-                    open=df['Open'],
-                    high=df['High'],
-                    low=df['Low'],
-                    close=df['Close'],
-                    name=hisse_secim)])
-        
-        fig.update_layout(title=f"{hisse_secim} Günlük Mum Grafiği", 
-                          template="plotly_dark", 
-                          xaxis_rangeslider_visible=False,
-                          height=500)
-        
+    # Senin çalışan dediğin mantıkla grafiği çiziyoruz
+    grafik_df = yf.download(hisse, period="1mo", interval="1d", progress=False)
+    if not grafik_df.empty:
+        fig = go.Figure(data=[go.Candlestick(
+            x=grafik_df.index,
+            open=grafik_df['Open'],
+            high=grafik_df['High'],
+            low=grafik_df['Low'],
+            close=grafik_df['Close']
+        )])
+        fig.update_layout(template="plotly_dark", height=450, xaxis_rangeslider_visible=False)
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning("Grafik verisi çekilemedi.")
-except Exception as e:
-    st.error(f"Grafik oluşturulurken hata oluştu: {e}")
+        st.info("Bu hisse için grafik verisi şu an kapalı.")
+except:
+    st.error("Grafik sunucusu yanıt vermiyor.")
 
-# --- YAN PANEL: KPSS GERİ SAYIM ---
-st.sidebar.markdown("### 🎯 KPSS Geri Sayım")
+# --- YAN PANEL ---
+st.sidebar.markdown(f"### 🎯 KPSS Geri Sayım")
 kalan = (datetime(2026, 8, 16) - datetime.now()).days
-st.sidebar.header(f"{kalan} Gün")
-st.sidebar.progress(max(0, min(100, 100 - (kalan/150*100))))
+st.sidebar.header(f"{kalan} Gün Kaldı")
