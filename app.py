@@ -1,3 +1,12 @@
+st.sidebar.title("📌 Terminal Bilgilendirme")
+st.sidebar.info("""
+    Bu terminal **yfinance** kütüphanesini kullanmaktadır. 
+    Piyasalar kapalıyken veya Yahoo Finance sunucularında bakım varken 
+    verilerde gecikme yaşanabilir. 
+    
+    **Çalışma Saatleri:** Hafta içi 10:00 - 18:10
+""")
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
