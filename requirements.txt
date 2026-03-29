@@ -1,5 +1,12 @@
 streamlit
 yfinance
 pandas
+numpy
 plotly
 pandas_ta
+matplotlib
+seaborn
+requests
+beautifulsoup4
+scipy
+ta
