@@ -2,64 +2,56 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
-# Sayfa Ayarları
-st.set_page_config(page_title="Doğuş Can - Finans V4", layout="wide")
+st.set_page_config(page_title="Doğuş Can Finans", layout="wide")
 
 st.title("📈 Profesyonel Finans Terminali")
-st.write("**Geliştirici:** Doğuş Can Şen | Ekonomi & Finans")
 
-# --- GÜVENLİ VERİ ÇEKME FONKSİYONU ---
+# --- VERİ ÇEKME FONKSİYONU ---
 def get_price(symbol):
     try:
-        ticker = yf.Ticker(symbol)
-        # Hafta sonu boşluğunu aşmak için 7 günlük veri çekiyoruz
-        df = ticker.history(period="7d")
-        
+        # download metodu genellikle history'den daha stabildir
+        df = yf.download(symbol, period="5d", interval="1d", progress=False)
         if not df.empty:
-            # HATANIN ÇÖZÜMÜ BURASI: .iloc[-1] sonrasına .item() ekleyerek 
-            # veriyi "Series" formatından "Saf Sayı" formatına çeviriyoruz.
-            last_price = df['Close'].iloc[-1]
-            return float(last_price) 
+            # En son kapanış fiyatını alıyoruz
+            price = df['Close'].iloc[-1]
+            # Eğer hala bir liste/seri olarak geliyorsa ilk elemanı zorla alıyoruz
+            if isinstance(price, (pd.Series, pd.DataFrame)):
+                price = price.iloc[0]
+            return float(price)
         return None
-    except Exception as e:
+    except:
         return None
 
-# --- EKRAN DÜZENİ ---
+# --- EKRAN TASARIMI ---
 c1, c2, c3 = st.columns(3)
 
 # Semboller
 assets = {
     "Dolar / TL": "USDTRY=X",
     "Ons Altın": "GC=F",
-    "BIST 100": "XU100.IS"
+    "BIST 100": "^XU100" # Bazı sistemlerde XU100.IS yerine ^XU100 daha iyi çalışır
 }
 
 cols = [c1, c2, c3]
 
 for (name, sym), col in zip(assets.items(), cols):
     price = get_price(sym)
-    if price is not None:
-        # Burada artık hata almayacaksın çünkü 'price' kesinlikle bir sayı (float)
+    if price:
         col.metric(label=name, value=f"{price:,.2f}")
     else:
-        col.error(f"{name} verisi alınamadı.")
+        col.error(f"{name} çekilemedi.")
 
 st.divider()
 
-# --- GRAFİK BÖLÜMÜ ---
-st.subheader("📊 Hisse Senedi Analizi")
-hisse = st.selectbox("Bir hisse seçin:", ["THYAO.IS", "ASELS.IS", "EREGL.IS", "SASA.IS"])
+# --- BASİT GRAFİK ---
+st.subheader("📊 Hisse Grafiği")
+hisse = st.text_input("Hisse Kodu Girin (Örn: THYAO.IS):", "THYAO.IS")
 
-try:
-    data = yf.download(hisse, period="1mo", interval="1d", progress=False)
+if st.button("Grafiği Göster"):
+    data = yf.download(hisse, period="1mo", interval="1d")
     if not data.empty:
-        # Grafikte hata çıkmaması için Close sütununu açıkça belirtiyoruz
         st.line_chart(data['Close'])
-        st.caption(f"{hisse} - Son 30 Günlük Kapanış Seyri")
     else:
-        st.warning("Grafik verisi şu an çekilemiyor.")
-except Exception as e:
-    st.error(f"Grafik Hatası: {e}")
+        st.warning("Veri bulunamadı. Lütfen sembolü (Örn: SASA.IS) kontrol edin.")
 
-st.sidebar.success("Sistem: Aktif")
-st.sidebar.info("Veriler Yahoo Finance üzerinden anlık çekilir.")
+st.sidebar.info("Hafta sonu verileri Cuma kapanışını gösterir.")
